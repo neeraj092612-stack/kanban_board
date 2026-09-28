@@ -13,20 +13,24 @@ The frontend is a single-board Kanban web application built with Next.js (App Ro
 
 ## Directory Structure
 - `src/app/`
-  - `page.tsx`: Page entry point that renders `KanbanBoard`.
+  - `page.tsx`: Page entry point. Owns auth gating, board state (load, load error with retry, one-at-a-time saves, save status) and chat state; locks the board while the AI responds.
   - `layout.tsx`: Global layout and metadata.
   - `globals.css`: Theme variables and global styles.
 - `src/components/`
-  - `KanbanBoard.tsx`: Central state container for the board. Manages drag-and-drop sensors, column renames, card additions, card deletions, and drag overlay.
-  - `KanbanColumn.tsx`: Renders a column with SortableContext, column header with inline renaming, card list, and card creation trigger.
-  - `KanbanCard.tsx`: Draggable card component with remove button.
+  - `KanbanBoard.tsx`: Controlled board (`board`, `onBoardChange`, `locked`). Manages drag-and-drop sensors, card add/edit/delete, column renames, and drag overlay.
+  - `KanbanColumn.tsx`: Renders a column with SortableContext, a title input that commits on blur or Enter, card list, and card creation trigger.
+  - `KanbanCard.tsx`: Draggable card with inline edit form (drag disabled while editing) and remove button.
   - `KanbanCardPreview.tsx`: Preview ghost card rendered inside DragOverlay during dragging.
   - `NewCardForm.tsx`: Collapsible form to enter card title and details.
+  - `ChatSidebar.tsx` / `ChatToggleButton.tsx`: Presentational AI chat panel and its open button.
+- `src/hooks/useChat.ts`: Chat messages, loading and error state; calls `sendChat`.
 - `src/lib/`
-  - `kanban.ts`: Core data models (`Card`, `Column`, `BoardData`), seed data (`initialData`), pure helper functions (`moveCard`, `createId`).
-  - `kanban.test.ts`: Unit tests for helper logic.
+  - `kanban.ts`: Data models (`Card`, `Column`, `BoardData`, `ApiBoardData`), shape conversion, pure helpers (`moveCard`, `createId`).
+  - `api.ts`: `fetchBoard`, `saveBoard`, `sendChat`; errors carry the server `detail` message.
+  - `auth.ts`: Hardcoded credential check and a localStorage-backed user store for `useSyncExternalStore`.
+- `src/test/fixtures.ts`: Demo board mirroring the backend seed, shared by unit and E2E tests.
 - `tests/`
-  - `kanban.spec.ts`: Playwright end-to-end browser tests.
+  - `kanban.spec.ts`: Playwright tests against the running app (default `http://127.0.0.1:8000`); each test resets the stored board. Includes one live AI test.
 
 ## Theme & Color Palette
 - Accent Yellow: `#ecad0a` (`--accent-yellow`)

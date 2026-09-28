@@ -1,7 +1,7 @@
-# Supabase Database Schema for Project Management MVP
+# Database Schema for Project Management MVP
 
 ## Overview
-The MVP uses a **Supabase** (PostgreSQL) database to store user accounts and a single Kanban board per user. Tables are automatically created on backend startup if they do not exist.
+The MVP uses PostgreSQL from the `supabase/postgres` image, accessed directly with `asyncpg` (no Supabase APIs). It stores user accounts and one Kanban board per user. The database named in `DATABASE_URL` (default `pm`), its tables and seed data are created automatically on backend startup.
 
 ## Tables
 
@@ -16,22 +16,18 @@ The MVP uses a **Supabase** (PostgreSQL) database to store user accounts and a s
 | Column | Type | Constraints |
 |--------|------|-------------|
 | `id` | `uuid` | `PRIMARY KEY`, default `gen_random_uuid()` |
-| `user_id` | `uuid` | `REFERENCES users(id) ON DELETE CASCADE NOT NULL` |
-| `data` | `jsonb` | `NOT NULL` – stores the board JSON (columns, cards, etc.) |
+| `user_id` | `uuid` | `REFERENCES users(id) ON DELETE CASCADE NOT NULL`, `UNIQUE` (one board per user) |
+| `data` | `jsonb` | `NOT NULL`: the board as `{"columns": [{"id", "title", "cards": [{"id", "title", "details"}]}]}` |
 | `updated_at` | `timestamptz` | `DEFAULT now()` |
 
 ## Seed Data
-A default user is created for the MVP:
-- **username**: `user`
-- **password**: stored only in the frontend (hard‑coded) – the backend does not manage passwords yet.
-
-The default board for this user contains five columns (`Backlog`, `To Do`, `In Progress`, `Review`, `Done`) with no cards. The JSON structure matches the `BoardData` Pydantic model used in the API.
+- User `user`. The password is checked only in the frontend; the backend does not manage passwords yet.
+- The demo board (`DEFAULT_BOARD` in `backend/src/database.py`): five columns (Backlog, Discovery, In Progress, Review, Done) with eight cards.
 
 ## Initialization
-The backend provides a helper `init_db()` (see `backend/src/database.py`) that:
-1. Creates the tables if they do not exist.
-2. Inserts the default user if missing.
-3. Inserts the default board for that user if missing.
+`init_db()` in `backend/src/database.py`:
+1. Creates the database if it does not exist.
+2. Creates the tables if they do not exist.
+3. Inserts the default user and, only if the user has no board yet, the demo board.
 
-All operations are **idempotent** – running `init_db()` multiple times will not duplicate rows or violate constraints.
-
+It is idempotent: re-running it never duplicates rows or overwrites a saved board.

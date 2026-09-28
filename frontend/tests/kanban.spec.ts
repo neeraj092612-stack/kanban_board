@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { demoApiBoard } from "../src/test/fixtures";
 
 const loginUser = async (page: Page) => {
   await page.goto("/");
@@ -33,6 +34,12 @@ const dragCardToColumn = async (page: Page, cardId: string, columnId: string) =>
   );
   await page.mouse.up();
 };
+
+// Board changes persist, so every test starts from the demo board.
+test.beforeEach(async ({ request }) => {
+  const response = await request.put("/api/board", { data: demoApiBoard });
+  expect(response.ok()).toBe(true);
+});
 
 test("requires authentication and displays error for invalid credentials", async ({ page }) => {
   await page.goto("/");
@@ -92,4 +99,51 @@ test("moves a card into an empty column", async ({ page }) => {
 
   await dragCardToColumn(page, "card-1", "col-review");
   await expect(reviewColumn.getByTestId("card-card-1")).toBeVisible();
+});
+
+test("persists added, edited, moved cards and renamed columns across reload", async ({ page }) => {
+  await loginUser(page);
+
+  const backlog = page.getByTestId("column-col-backlog");
+  await backlog.getByRole("button", { name: /add a card/i }).click();
+  await backlog.getByPlaceholder("Card title").fill("Persisted card");
+  await backlog.getByPlaceholder("Details").fill("Survives reload.");
+  await backlog.getByRole("button", { name: /add card/i }).click();
+
+  const card = page.getByTestId("card-card-1");
+  await card.getByRole("button", { name: /^edit /i }).click();
+  await card.getByLabel("Edit card title").fill("Edited title");
+  await card.getByLabel("Edit card details").fill("Edited details");
+  await card.getByRole("button", { name: /save/i }).click();
+
+  await dragCardToColumn(page, "card-1", "col-progress");
+
+  const progress = page.getByTestId("column-col-progress");
+  await progress.getByLabel("Column title").fill("Active Development");
+  await progress.getByLabel("Column title").press("Enter");
+  await expect(page.getByTestId("save-status")).toHaveText("Saved");
+
+  await page.reload();
+  await expect(backlog.getByText("Persisted card")).toBeVisible();
+  await expect(backlog.getByText("Survives reload.")).toBeVisible();
+  await expect(progress.getByTestId("card-card-1")).toContainText("Edited title");
+  await expect(progress.getByTestId("card-card-1")).toContainText("Edited details");
+  await expect(progress.getByLabel("Column title")).toHaveValue("Active Development");
+});
+
+test("AI chat creates a card that appears on the board and persists", async ({ page }) => {
+  await loginUser(page);
+  await page.getByRole("button", { name: "Open AI chat" }).click();
+  await page.getByTestId("chat-input").fill(
+    "Create a card called 'Release v1.0' in the Review column with details 'Ready for signoff'."
+  );
+  await page.getByTestId("send-button").click();
+
+  const review = page.getByTestId("column-col-review");
+  await expect(review.getByText("Release v1.0")).toBeVisible({ timeout: 45_000 });
+  await expect(review.getByText("Ready for signoff")).toBeVisible();
+  await expect(page.getByTestId("chat-messages")).not.toContainText("Thinking...");
+
+  await page.reload();
+  await expect(review.getByText("Release v1.0")).toBeVisible();
 });

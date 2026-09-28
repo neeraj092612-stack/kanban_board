@@ -175,3 +175,9 @@ cython_debug/
 
 .DS_Store
 
+
+# Frontend static export copied for local backend runs (Docker builds its own)
+backend/static/
+
+# Dependencies
+node_modules/

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import clsx from "clsx";
 import {
   DndContext,
   DragOverlay,
@@ -13,33 +14,31 @@ import {
 } from "@dnd-kit/core";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
-import { createId, initialData, moveCard, type BoardData } from "@/lib/kanban";
+import { createId, moveCard, type BoardData } from "@/lib/kanban";
 
 type KanbanBoardProps = {
+  board: BoardData;
+  onBoardChange: (update: (board: BoardData) => BoardData) => void;
   user?: string;
   onLogout?: () => void;
+  saveStatus?: string;
+  // Disables editing, e.g. while the AI is working on the board.
+  locked?: boolean;
 };
 
 export const KanbanBoard = ({
+  board,
+  onBoardChange: setBoard,
   user,
   onLogout,
-  externalBoard,
-  externalSetBoard,
-}: KanbanBoardProps & {
-  externalBoard?: BoardData;
-  externalSetBoard?: React.Dispatch<React.SetStateAction<BoardData>>;
-}) => {
-  const [internalBoard, setInternalBoard] = useState<BoardData>(() => initialData);
-  const board = externalBoard ?? internalBoard;
-  const setBoard = externalSetBoard ?? setInternalBoard;
-
+  saveStatus,
+  locked = false,
+}: KanbanBoardProps) => {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
-
-  const cardsById = useMemo(() => board.cards, [board.cards]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveCardId(event.active.id as string);
@@ -70,11 +69,18 @@ export const KanbanBoard = ({
       ...prev,
       cards: {
         ...prev.cards,
-        [id]: { id, title, details: details || "No details yet." },
+        [id]: { id, title, details },
       },
       columns: prev.columns.map(col =>
         col.id === columnId ? { ...col, cardIds: [...col.cardIds, id] } : col
       ),
+    }));
+  };
+
+  const handleEditCard = (cardId: string, title: string, details: string) => {
+    setBoard(prev => ({
+      ...prev,
+      cards: { ...prev.cards, [cardId]: { id: cardId, title, details } },
     }));
   };
 
@@ -92,7 +98,7 @@ export const KanbanBoard = ({
     }));
   };
 
-  const activeCard = activeCardId ? cardsById[activeCardId] : null;
+  const activeCard = activeCardId ? board.cards[activeCardId] : null;
 
   return (
     <div className="relative overflow-hidden">
@@ -118,6 +124,11 @@ export const KanbanBoard = ({
                   <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--gray-text)]">Account</p>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-[var(--navy-dark)]">{user}</span>
+                    {saveStatus && (
+                      <span data-testid="save-status" className="text-xs font-semibold text-[var(--gray-text)]">
+                        {saveStatus}
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={onLogout}
@@ -141,7 +152,12 @@ export const KanbanBoard = ({
           </div>
         </header>
         <DndContext sensors={sensors} collisionDetection={rectIntersection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <section className="grid gap-6 lg:grid-cols-5">
+          <fieldset
+            disabled={locked}
+            aria-busy={locked}
+            data-testid="board-columns"
+            className={clsx("grid min-w-0 gap-6 lg:grid-cols-5", locked && "pointer-events-none opacity-60")}
+          >
             {board.columns.map(column => (
               <KanbanColumn
                 key={column.id}
@@ -149,10 +165,11 @@ export const KanbanBoard = ({
                 cards={column.cardIds.map(cardId => board.cards[cardId])}
                 onRename={handleRenameColumn}
                 onAddCard={handleAddCard}
+                onEditCard={handleEditCard}
                 onDeleteCard={handleDeleteCard}
               />
             ))}
-          </section>
+          </fieldset>
           <DragOverlay>
             {activeCard && (
               <div className="w-[260px]">

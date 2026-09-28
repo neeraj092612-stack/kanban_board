@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   AUTH_STORAGE_KEY,
   clearStoredUser,
   getStoredUser,
   setStoredUser,
+  subscribeToUser,
   validateCredentials,
 } from "@/lib/auth";
 
@@ -27,5 +28,14 @@ describe("auth helpers", () => {
     clearStoredUser();
     expect(getStoredUser()).toBeNull();
   });
-});
 
+  it("notifies subscribers on sign-in and sign-out", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeToUser(listener);
+    setStoredUser("user");
+    clearStoredUser();
+    unsubscribe();
+    setStoredUser("user");
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+});

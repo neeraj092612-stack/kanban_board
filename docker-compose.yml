@@ -3,10 +3,10 @@ services:
     image: supabase/postgres:15.8.1.085
     container_name: pm-db
     environment:
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: postgres
     ports:
-      - "54322:5432"
+      - "127.0.0.1:54322:5432"
     volumes:
       - supabase_db_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,9 +21,9 @@ services:
       dockerfile: Dockerfile
     container_name: pm-web
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      - SUPABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/${DB_NAME:-pm}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       db:

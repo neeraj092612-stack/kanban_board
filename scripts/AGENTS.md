@@ -16,4 +16,5 @@ Control scripts to start and stop the Project Management MVP services across pla
 
 ## Operational Standards
 - No emojis in script outputs or logs.
-- All services are bound to port 8000 for the web application and 54322 for the Supabase local database.
+- Ports are bound to 127.0.0.1 only: 8000 for the web application and 54322 for the database.
+- `DB_NAME` (default `pm`) selects the database the app uses, e.g. `DB_NAME=pm_e2e` for end-to-end tests; it is created automatically.

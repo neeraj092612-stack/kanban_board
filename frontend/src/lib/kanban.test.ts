@@ -1,4 +1,5 @@
-import { fromApiBoard, moveCard, type Column } from "@/lib/kanban";
+import { fromApiBoard, moveCard, toApiBoard, type Column } from "@/lib/kanban";
+import { demoApiBoard } from "@/test/fixtures";
 
 describe("moveCard", () => {
   const baseColumns: Column[] = [
@@ -34,15 +35,12 @@ describe("moveCard", () => {
     expect(result[2].cardIds).toEqual(["card-1"]);
   });
 
-  it("uses the demo board when the API seed has no cards", () => {
-    const result = fromApiBoard({
-      columns: [
-        { id: "backlog", title: "Backlog", cards: [] },
-        { id: "done", title: "Done", cards: [] },
-      ],
-    });
+  it("round-trips between API and client board shapes", () => {
+    expect(toApiBoard(fromApiBoard(demoApiBoard))).toEqual(demoApiBoard);
+  });
 
-    expect(result.cards["card-1"]).toBeDefined();
-    expect(result.columns[0].cardIds).toEqual(["card-1", "card-2"]);
+  it("keeps an empty board empty", () => {
+    const empty = { columns: [{ id: "col-a", title: "A", cards: [] }] };
+    expect(fromApiBoard(empty)).toEqual({ columns: [{ id: "col-a", title: "A", cardIds: [] }], cards: {} });
   });
 });

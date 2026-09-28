@@ -1,90 +1,54 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
-import { ChatSidebar } from '@/components/ChatSidebar';
-import { BoardData, initialData } from '@/lib/kanban';
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { ChatSidebar } from "@/components/ChatSidebar";
 
-// Mock fetch globally
-global.fetch = vi.fn();
+const props = {
+  open: true,
+  messages: [],
+  loading: false,
+  error: null,
+  onSend: vi.fn(),
+  onDismissError: vi.fn(),
+  onClose: vi.fn(),
+};
 
-describe('ChatSidebar', () => {
-  const mockBoard: BoardData = initialData;
-  const onClose = vi.fn();
-  const onBoardUpdate = vi.fn();
+describe("ChatSidebar", () => {
+  beforeEach(() => vi.clearAllMocks());
 
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it("sends the trimmed message and clears the input", async () => {
+    render(<ChatSidebar {...props} />);
+    const input = screen.getByTestId("chat-input");
+    await userEvent.type(input, "  Add a card  ");
+    await userEvent.click(screen.getByTestId("send-button"));
+    expect(props.onSend).toHaveBeenCalledWith("Add a card");
+    expect(input).toHaveValue("");
   });
 
-  it('sends a message and displays AI reply', async () => {
-    // Mock API response
-    (fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ reply: 'AI response', board: null }),
-    });
-
+  it("renders messages, loading state, and errors", async () => {
     render(
-      <ChatSidebar board={mockBoard} onClose={onClose} onBoardUpdate={onBoardUpdate} />
+      <ChatSidebar
+        {...props}
+        loading
+        error="Invalid AI response"
+        messages={[
+          { role: "user", content: "Hello" },
+          { role: "assistant", content: "Hi there" },
+        ]}
+      />
     );
-
-    const input = screen.getByTestId('chat-input') as HTMLInputElement;
-    const sendButton = screen.getByTestId('send-button');
-
-    fireEvent.change(input, { target: { value: 'Hello AI' } });
-    fireEvent.click(sendButton);
-
-    await waitFor(() => expect(screen.getByText('AI response')).toBeInTheDocument());
-    const requestBody = JSON.parse((fetch as any).mock.calls[0][1].body);
-    expect(requestBody.board.columns[0].cards).toHaveLength(2);
-    expect(onBoardUpdate).not.toHaveBeenCalled();
+    expect(screen.getByText("Hello")).toBeInTheDocument();
+    expect(screen.getByText("Hi there")).toBeInTheDocument();
+    expect(screen.getByTestId("loading-indicator")).toBeInTheDocument();
+    expect(screen.getByTestId("send-button")).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(props.onDismissError).toHaveBeenCalled();
   });
 
-  it('handles board update payload', async () => {
-    const updatedApiBoard = {
-      columns: [{
-        id: mockBoard.columns[0].id,
-        title: 'New Title',
-        cards: [mockBoard.cards[mockBoard.columns[0].cardIds[0]]],
-      }],
-    };
-    const updatedBoard: BoardData = {
-      columns: [{
-        id: mockBoard.columns[0].id,
-        title: 'New Title',
-        cardIds: [mockBoard.columns[0].cardIds[0]],
-      }],
-      cards: {
-        [mockBoard.columns[0].cardIds[0]]: mockBoard.cards[mockBoard.columns[0].cardIds[0]],
-      },
-    };
-    (fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ reply: 'Board updated', board: updatedApiBoard }),
-    });
-
-    render(
-      <ChatSidebar board={mockBoard} onClose={onClose} onBoardUpdate={onBoardUpdate} />
-    );
-
-    const input = screen.getByTestId('chat-input') as HTMLInputElement;
-    const sendButton = screen.getByTestId('send-button');
-    fireEvent.change(input, { target: { value: 'Update board' } });
-    fireEvent.click(sendButton);
-
-    await waitFor(() => expect(screen.getByText('Board updated')).toBeInTheDocument());
-    expect(onBoardUpdate).toHaveBeenCalledWith(updatedBoard);
-  });
-
-  it('displays error on failed request', async () => {
-    (fetch as any).mockResolvedValueOnce({ ok: false, text: async () => 'Server error' });
-    render(
-      <ChatSidebar board={mockBoard} onClose={onClose} onBoardUpdate={onBoardUpdate} />
-    );
-    const input = screen.getByTestId('chat-input') as HTMLInputElement;
-    const sendButton = screen.getByTestId('send-button');
-    fireEvent.change(input, { target: { value: 'bad' } });
-    fireEvent.click(sendButton);
-    await waitFor(() => expect(screen.getByTestId('error-message')).toBeInTheDocument());
-    expect(screen.getByText('Server error')).toBeInTheDocument();
+  it("is hidden when closed and closes via the close button", async () => {
+    const { rerender } = render(<ChatSidebar {...props} />);
+    await userEvent.click(screen.getByRole("button", { name: "Close chat" }));
+    expect(props.onClose).toHaveBeenCalled();
+    rerender(<ChatSidebar {...props} open={false} />);
+    expect(screen.queryByRole("complementary", { name: "AI Assistant" })).not.toBeInTheDocument();
   });
 });
-

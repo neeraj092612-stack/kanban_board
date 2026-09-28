@@ -165,7 +165,7 @@ Implement FastAPI endpoints to read and update board data, creating Supabase dat
 - [x] Configure automatic database table and seed initialization if not present upon app startup.
 
 #### Unit Testing
-- Backend `pytest` suite with mocked database client:
+- Backend `pytest` suite against a dedicated `pm_test` database (created automatically):
   - `GET /api/board` returns initial 5 columns and seed cards.
   - `PUT /api/board` updates board data and returns updated payload.
   - Malformed payload to `PUT /api/board` returns status 422 with validation error.
@@ -194,6 +194,8 @@ Connect frontend to FastAPI backend for live persistence, and add card editing f
   - Fetch board data from `GET /api/board` on initial load after login.
   - Sync board updates (move card, add card, delete card, edit card, rename column) to backend via `PUT /api/board`.
 - [x] Add visual save state indicator (e.g. "Saved", "Saving...").
+- [x] Run frontend unit tests (23/23 passed) and backend tests against Supabase (12/12 passed).
+- [x] Run Playwright tests against the Docker app at http://localhost:8000 (6/6 passed, including reload persistence).
 
 #### Unit Testing
 - Frontend unit tests:
@@ -218,12 +220,12 @@ Connect frontend to FastAPI backend for live persistence, and add card editing f
 ---
 
 ### Part 8: AI Connectivity
-Configure OpenAI client with `.env` credentials and model `openai/gpt-oss-120b`, verifying basic API connectivity.
+Configure OpenAI client with `.env` credentials and model `gpt-4o-mini`, verifying basic API connectivity.
 
 - [x] Add `openai` client package to backend `pyproject.toml` managed by `uv`.
 - [x] Create AI service module in `backend/` loading `OPENAI_API_KEY` from `.env`.
-- [x] Configure target model `openai/gpt-oss-120b`.
-- [x] Add test endpoint `POST /api/ai/test` performing a simple "What is 2+2?" prompt.
+- [x] Configure target model `gpt-4o-mini`.
+- [x] Add test endpoint `POST /api/ai/test` performing a simple "What is 2+2?" prompt. (Removed after the code review; connectivity is now covered by the live chat tests, `uv run pytest -m live`.)
 
 #### Unit Testing
 - Backend unit test with mocked OpenAI client verifying:
@@ -233,9 +235,9 @@ Configure OpenAI client with `.env` credentials and model `openai/gpt-oss-120b`,
 - Criteria: Unit tests pass without external network call.
 
 #### Integration Testing
-- Execute live integration test against `POST /api/ai/test` using the `.env` API key.
-- Verify the response status is 200 and the model output answers the prompt (contains "4").
-- Criteria: Live connectivity with `openai/gpt-oss-120b` verified.
+- Execute live integration tests (`uv run pytest -m live`) using the `.env` API key.
+- Verify the chat endpoint returns 200 with a conversational reply.
+- Criteria: Live connectivity with `gpt-4o-mini` verified.
 
 #### Stage Gate
 - AI connectivity verified with live model. User confirmation to proceed to Part 9.
@@ -250,8 +252,8 @@ Enable the AI to accept board state, conversation history, and user requests, re
   - `board`: optional `BoardData` structure reflecting any card creation, edit, move, or column changes.
 - [x] Implement endpoint `POST /api/ai/chat`:
   - Accepts `{ message: string, history: list, board: BoardData }`.
-  - Sends system instructions and board JSON to `openai/gpt-oss-120b`.
-  - Enforces structured JSON output matching schema.
+  - Sends system instructions and board JSON to `gpt-4o-mini`.
+  - Enforces the output schema with OpenAI Structured Outputs. The model returns `{reply, operations}` (create/update/move/delete card, rename column); the backend applies the operations to the board, generating card ids and rejecting unknown ids, so the model cannot drop or corrupt unrelated cards.
 - [x] Persist updated board in Supabase if AI modifies board.
 - [x] Return structured response `{ reply: string, board: BoardData | null }`.
 

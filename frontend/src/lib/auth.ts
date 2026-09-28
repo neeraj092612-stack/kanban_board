@@ -1,25 +1,29 @@
 export const AUTH_STORAGE_KEY = "pm_user";
 
-export const validateCredentials = (username: string, password: string): boolean => {
-  return username === "user" && password === "password";
-};
+const listeners = new Set<() => void>();
+const notify = () => listeners.forEach((listener) => listener());
 
-export const getStoredUser = (): string | null => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  return localStorage.getItem(AUTH_STORAGE_KEY);
-};
+export const validateCredentials = (username: string, password: string): boolean =>
+  username === "user" && password === "password";
+
+export const getStoredUser = (): string | null => localStorage.getItem(AUTH_STORAGE_KEY);
 
 export const setStoredUser = (username: string): void => {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(AUTH_STORAGE_KEY, username);
-  }
+  localStorage.setItem(AUTH_STORAGE_KEY, username);
+  notify();
 };
 
 export const clearStoredUser = (): void => {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-  }
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  notify();
 };
 
+// For useSyncExternalStore: re-render on sign-in/out in this tab or another.
+export const subscribeToUser = (listener: () => void) => {
+  listeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+};

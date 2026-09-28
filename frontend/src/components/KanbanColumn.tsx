@@ -10,6 +10,7 @@ type KanbanColumnProps = {
   cards: Card[];
   onRename: (columnId: string, title: string) => void;
   onAddCard: (columnId: string, title: string, details: string) => void;
+  onEditCard: (cardId: string, title: string, details: string) => void;
   onDeleteCard: (columnId: string, cardId: string) => void;
 };
 
@@ -18,6 +19,7 @@ export const KanbanColumn = ({
   cards,
   onRename,
   onAddCard,
+  onEditCard,
   onDeleteCard,
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
@@ -38,9 +40,18 @@ export const KanbanColumn = ({
               {cards.length} cards
             </span>
           </div>
+          {/* Commit on blur or Enter; keyed on the title so outside renames (e.g. AI) reset the draft. */}
           <input
-            value={column.title}
-            onChange={(event) => onRename(column.id, event.target.value)}
+            key={column.title}
+            defaultValue={column.title}
+            onBlur={(event) => {
+              const title = event.target.value.trim();
+              if (!title) event.target.value = column.title;
+              else if (title !== column.title) onRename(column.id, title);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+            }}
             className="mt-3 w-full bg-transparent font-display text-lg font-semibold text-[var(--navy-dark)] outline-none"
             aria-label="Column title"
           />
@@ -52,6 +63,7 @@ export const KanbanColumn = ({
             <KanbanCard
               key={card.id}
               card={card}
+              onEdit={onEditCard}
               onDelete={(cardId) => onDeleteCard(column.id, cardId)}
             />
           ))}
